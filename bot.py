@@ -9,47 +9,49 @@ TOKEN = open("token", "r").read().strip()
 # URL de la API
 API_URL = "http://192.168.1.100/api"
 
-# Definicion del comando /abacus
-async def abacus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Comprovamos que solo haya un parametro
+
+# Funcion consultar_tienda()
+# La utilizamos para consultar los datos de los sets en cualquier tienda
+async def consultar_tienda(update: Update, context: ContextTypes.DEFAULT_TYPE, tienda: str):
+    # Comprobamos que solo haya un parametro
     if len(context.args) != 1:
         await update.message.reply_text(
-            "Uso correcto:\n/abacus <número_de_set>\nEjemplo: /abacus 75400"
+            f"Uso correcto:\n/{tienda} <número_de_set>\nEjemplo: /{tienda} 75400"
         )
         return
-
+        
     # Construimos la URL del endpoint
     set_num = context.args[0]
-    url = f"{API_URL}/abacus/{set_num}"
+    url = f"{API_URL}/{tienda}/{set_num}"
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, timeout=5) as response:
                 text = await response.text()
-
                 print("STATUS:", response.status)
                 print("RAW RESPONSE:", text)
 
                 data = await response.json()
 
-        # i la API devuelve un error, lo mostramos
+        # Si la API devuelve error, lo mostramos
         if "error" in data:
             await update.message.reply_text(f"Error: {data['error']}")
             return
 
-        # Obtenemos el nombre de la tienda, el precio del set, la disponibilidad y la URL
-        tienda = data.get("site", "Desconocido")
+        # Extraemos datos: el nombre de la tienda, el precio del set,
+        # la disponibilidad y su URL
+        tienda_nombre = data.get("site", tienda.capitalize())
         precio = data.get("price", "Desconocido")
         disponibilidad = data.get("status", "Desconocido")
-        url = data.get("url", "Desconocido")
+        url_producto = data.get("url", "Desconocido")
 
         # Mostramos la informacion
         msg = (
             f"Información del set *{set_num}:*\n"
-            f"- Tienda: *{tienda}*\n"
+            f"- Tienda: *{tienda_nombre}*\n"
             f"- Precio: *{precio} €*\n"
             f"- Disponibilidad: *{disponibilidad}*\n"
-            f"- URL: {url}\n"
+            f"- URL: {url_producto}\n"
         )
 
         await update.message.reply_text(msg, parse_mode="Markdown")
@@ -58,111 +60,25 @@ async def abacus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"Exception Error: {type(e).__name__}: {e}"
         )
+
+
+
+# Definicion del comando /abacus
+async def abacus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await consultar_tienda(update, context, "abacus")
 
 # Definicion del comando /alcampo
 async def alcampo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Comprovamos que solo haya un parametro
-    if len(context.args) != 1:
-        await update.message.reply_text(
-            "Uso correcto:\n/alcampo <número_de_set>\nEjemplo: /alcampo 75400"
-        )
-        return
-
-    # Construimos la URL del endpoint
-    set_num = context.args[0]
-    url = f"{API_URL}/alcampo/{set_num}"
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=5) as response:
-                text = await response.text()
-
-                print("STATUS:", response.status)
-                print("RAW RESPONSE:", text)
-
-                data = await response.json()
-
-        # i la API devuelve un error, lo mostramos
-        if "error" in data:
-            await update.message.reply_text(f"Error: {data['error']}")
-            return
-
-        # Obtenemos el nombre de la tienda, el precio del set, la disponibilidad y la URL
-        tienda = data.get("site", "Desconocido")
-        precio = data.get("price", "Desconocido")
-        disponibilidad = data.get("status", "Desconocido")
-        url = data.get("url", "Desconocido")
-
-        # Mostramos la informacion
-        msg = (
-            f"Información del set *{set_num}:*\n"
-            f"- Tienda: *{tienda}*\n"
-            f"- Precio: *{precio} €*\n"
-            f"- Disponibilidad: *{disponibilidad}*\n"
-            f"- URL: {url}\n"
-        )
-
-        await update.message.reply_text(msg, parse_mode="Markdown")
-
-    except Exception as e:
-        await update.message.reply_text(
-            f"Exception Error: {type(e).__name__}: {e}"
-        )
+    await consultar_tienda(update, context, "alcampo")
 
 # Definicion del comando /brickboutique
 async def brickoutique_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Comprovamos que solo haya un parametro
-    if len(context.args) != 1:
-        await update.message.reply_text(
-            "Uso correcto:\n/brickoutique <número_de_set>\nEjemplo: /brickoutique 75400"
-        )
-        return
-
-    # Construimos la URL del endpoint
-    set_num = context.args[0]
-    url = f"{API_URL}/brickoutique/{set_num}"
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=5) as response:
-                text = await response.text()
-
-                print("STATUS:", response.status)
-                print("RAW RESPONSE:", text)
-
-                data = await response.json()
-
-        # i la API devuelve un error, lo mostramos
-        if "error" in data:
-            await update.message.reply_text(f"Error: {data['error']}")
-            return
-
-        # Obtenemos el nombre de la tienda, el precio del set, la disponibilidad y la URL
-        tienda = data.get("site", "Desconocido")
-        precio = data.get("price", "Desconocido")
-        disponibilidad = data.get("status", "Desconocido")
-        url = data.get("url", "Desconocido")
-
-        # Mostramos la informacion
-        msg = (
-            f"Información del set *{set_num}:*\n"
-            f"- Tienda: *{tienda}*\n"
-            f"- Precio: *{precio} €*\n"
-            f"- Disponibilidad: *{disponibilidad}*\n"
-            f"- URL: {url}\n"
-        )
-
-        await update.message.reply_text(msg, parse_mode="Markdown")
-
-    except Exception as e:
-        await update.message.reply_text(
-            f"Exception Error: {type(e).__name__}: {e}"
-        )
+    await consultar_tienda(update, context, "brickoutique")
 
 
 # Definicion del comando /setinfo
 async def setinfo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Comprovamos que solo haya un parametro
+    # Comprobamos que solo haya un parametro
     if len(context.args) != 1:
         await update.message.reply_text(
             "Uso correcto:\n/setinfo <número_de_set>\nEjemplo: /setinfo 75000-1"
