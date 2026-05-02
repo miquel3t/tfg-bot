@@ -40,18 +40,26 @@ async def consultar_tienda(update: Update, context: ContextTypes.DEFAULT_TYPE, t
 
         # Extraemos datos: el nombre de la tienda, el precio del set,
         # la disponibilidad y su URL
-        tienda_nombre = data.get("site", tienda.capitalize())
-        precio = data.get("price", "Desconocido")
-        disponibilidad = data.get("status", "Desconocido")
-        url_producto = data.get("url", "Desconocido")
+        site = data.get("site", tienda.capitalize())
+        price = data.get("price", "Desconocido")
+        status_raw = data.get("status", "Desconocido")
+        url = data.get("url", "Desconocido")
+
+        if status_raw == "Disponible":
+            status = f"\U0001F7E2 {status_raw}"
+        elif status_raw == "Agotado":
+            status = f"\U0001F534 {status_raw}"
+        else:
+            status = status_raw
+
 
         # Mostramos la informacion
         msg = (
             f"Información del set *{set_num}:*\n"
-            f"- Tienda: *{tienda_nombre}*\n"
-            f"- Precio: *{precio} €*\n"
-            f"- Disponibilidad: *{disponibilidad}*\n"
-            f"- URL: {url_producto}\n"
+            f"- Tienda: *{site}*\n"
+            f"- Precio: *{price} €*\n"
+            f"- Disponibilidad: *{status}*\n"
+            f"- URL: {url}\n"
         )
 
         await update.message.reply_text(msg, parse_mode="Markdown")
@@ -60,8 +68,6 @@ async def consultar_tienda(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         await update.message.reply_text(
             f"Exception Error: {type(e).__name__}: {e}"
         )
-
-
 
 # Definicion del comando /abacus
 async def abacus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -76,12 +82,90 @@ async def brickoutique_command(update: Update, context: ContextTypes.DEFAULT_TYP
     await consultar_tienda(update, context, "brickoutique")
 
 
+# Definición del comando /bestprice
+async def bestprice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    # Validación de parámetros
+    if len(context.args) != 1:
+        await update.message.reply_text(
+            "Uso correcto:\n/bestprice <número_de_set>\nEjemplo: /bestprice 75345"
+        )
+        return
+
+    set_num = context.args[0]
+
+    # Validación básica
+    if not set_num.isdigit():
+        await update.message.reply_text("El número de set solo puede contener dígitos.")
+        return
+
+    # Construimos la URL del endpoint
+    url = f"{API_URL}/bestprice/{set_num}"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=5) as response:
+                raw = await response.text()
+                print("STATUS:", response.status)
+                print("RAW RESPONSE:", raw)
+
+                data = await response.json()
+
+        # Si la API devuelve un error, lo mostramos
+        if "error" in data:
+            await update.message.reply_text(f"Error: {data['error']}")
+            return
+
+        # No se ha encontrado en set en ninguna tienda
+        if "warning" in data and "price" not in data:
+            await update.message.reply_text(f"Atencion: {data['warning']}")
+            return
+
+        # Si no hay precio en los datos, mostramos un error
+        if "price" not in data:
+            await update.message.reply_text("Error: No se ha podido obtener informacion del set.")
+            return
+
+        # Obtenemos los datos
+        site = data.get("site", "Desconocido")
+        price = data.get("price", "Desconocido")
+        status_raw = data.get("status", "Desconocido")
+        url = data.get("url", "Desconocido")
+        warning = data.get("warning", None)
+
+        if status_raw == "Disponible":
+            status = f"\U0001F7E2 {status_raw}"
+        elif status_raw == "Agotado":
+            status = f"\U0001F534 {status_raw}"
+        else:
+            status = status_raw
+            
+        # Construimos el mensaje
+        msg = (
+            f"Mejor precio para el set *{set_num}*:\n"
+            f"- Tienda: *{site}*\n"
+            f"- Precio: *{price} €*\n"
+            f"- Estado: *{status}*\n"
+            f"- URL: {url}\n"
+        )
+
+        if warning:
+            msg += f"-Atencion: {warning}"
+
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    except Exception as e:
+        await update.message.reply_text(
+            f"Exception Error: {type(e).__name__}: {e}"
+        )
+
+
 # Definicion del comando /setinfo
 async def setinfo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Comprobamos que solo haya un parametro
     if len(context.args) != 1:
         await update.message.reply_text(
-            "Uso correcto:\n/setinfo <número_de_set>\nEjemplo: /setinfo 75000-1"
+            "Uso correcto:\n/setinfo <número_de_set>\nEjemplo: /setinfo 75000"
         )
         return
 
@@ -191,7 +275,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/setinfo - Muestra informacion de un set\n"
         "/abacus - Muestra el precio de un set en Abacus\n"
         "/alcampo - Muestra el precio de un set en Alcampo\n"
-        "/brickoutique - Muestra el precio de un set en Brickoutique\n"   
+        "/brickoutique - Muestra el precio de un set en Brickoutique\n"
+        "/bestprice - Busca el mejor precio de un set en todas las tiendas\n"   
         "¡Esto es todo! Por el momento..."
     )
 
@@ -207,6 +292,7 @@ def main():
     app.add_handler(CommandHandler("abacus", abacus_command))
     app.add_handler(CommandHandler("alcampo", alcampo_command))
     app.add_handler(CommandHandler("brickoutique", brickoutique_command))
+    app.add_handler(CommandHandler("bestprice", bestprice_command))
 
     # Iniciamos el bot en modo polling
     app.run_polling()
