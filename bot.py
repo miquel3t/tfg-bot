@@ -9,6 +9,57 @@ TOKEN = open("token", "r").read().strip()
 # URL de la API
 API_URL = "http://192.168.1.100/api"
 
+# Definicion del comando /abacus
+async def abacus_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Comprovamos que solo haya un parametro
+    if len(context.args) != 1:
+        await update.message.reply_text(
+            "Uso correcto:\n/abacus <número_de_set>\nEjemplo: /abacus 75400"
+        )
+        return
+
+    # Construimos la URL del endpoint
+    set_num = context.args[0]
+    url = f"{API_URL}/abacus/{set_num}"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=5) as response:
+                text = await response.text()
+
+                print("STATUS:", response.status)
+                print("RAW RESPONSE:", text)
+
+                data = await response.json()
+
+        # i la API devuelve un error, lo mostramos
+        if "error" in data:
+            await update.message.reply_text(f"Error: {data['error']}")
+            return
+
+        # Obtenemos el nombre de la tienda, el precio del set, la disponibilidad y la URL
+        tienda = data.get("site", "Desconocido")
+        precio = data.get("price", "Desconocido")
+        disponibilidad = data.get("status", "Desconocido")
+        url = data.get("url", "Desconocido")
+
+        # Mostramos la informacion
+        msg = (
+            f"Información del set *{set_num}:*\n"
+            f"- Tienda: *{tienda}*\n"
+            f"- Precio: *{precio} €*\n"
+            f"- Disponibilidad: *{disponibilidad}*\n"
+            f"- URL: {url}\n"
+        )
+
+        await update.message.reply_text(msg, parse_mode="Markdown")
+
+    except Exception as e:
+        await update.message.reply_text(
+            f"Exception Error: {type(e).__name__}: {e}"
+        )
+
+
 # Definicion del comando /setinfo
 async def setinfo_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Comprovamos que solo haya un parametro
@@ -134,6 +185,7 @@ def main():
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("health", health_command))
     app.add_handler(CommandHandler("setinfo", setinfo_command))
+    app.add_handler(CommandHandler("abacus", abacus_command))
 
     # Iniciamos el bot en modo polling
     app.run_polling()
